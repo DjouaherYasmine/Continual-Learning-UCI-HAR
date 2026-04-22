@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Continual Learning — HAR Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: rgba(255,255,255,0.08);
+    --border-bright: rgba(255,255,255,0.16);
+    --text: #f0f0f8;
+    --muted: #6b6b80;
+    --accent: #7c6dfa;
+    --accent2: #a78bfa;
+    --teal: #2dd4bf;
+    --coral: #fb7185;
+    --amber: #fbbf24;
+    --green: #4ade80;
+    --mono: 'Space Mono', monospace;
+    --display: 'Syne', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  .scanlines {
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    z-index: 100;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+  }
+
+  .logo {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .logo span { color: var(--accent2); }
+
+  .header-badges {
+    display: flex;
+    gap: 8px;
+  }
+  .hbadge {
+    font-size: 10px;
+    padding: 3px 10px;
+    border: 1px solid var(--border-bright);
+    border-radius: 2px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 40px 40px 60px; }
+
+  .hero { margin-bottom: 40px; }
+  .hero-eyebrow {
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .hero-eyebrow::before {
+    content: '';
+    width: 24px;
+    height: 1px;
+    background: var(--accent);
+  }
+  .hero-title {
+    font-family: var(--display);
+    font-size: 48px;
+    font-weight: 800;
+    line-height: 1.0;
+    letter-spacing: -0.03em;
+    color: var(--text);
+    margin-bottom: 16px;
+  }
+  .hero-title em {
+    font-style: normal;
+    color: var(--accent2);
+  }
+  .hero-sub {
+    font-size: 13px;
+    color: var(--muted);
+    max-width: 520px;
+    line-height: 1.7;
+  }
+
+  .dataset-strip {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 28px 0 40px;
+    background: var(--surface);
+  }
+  .ds-item {
+    flex: 1;
+    padding: 14px 18px;
+    border-right: 1px solid var(--border);
+  }
+  .ds-item:last-child { border-right: none; }
+  .ds-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .ds-val { font-family: var(--display); font-size: 20px; font-weight: 700; color: var(--text); }
+  .ds-val.accent { color: var(--accent2); }
+
+  .task-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+  .task-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--surface);
+    font-size: 11px;
+    color: var(--muted);
+    transition: all 0.2s;
+  }
+  .task-chip .chip-num {
+    font-family: var(--display);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    width: 20px;
+    height: 20px;
+    border: 1px solid var(--border-bright);
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .task-chip.active-t {
+    border-color: var(--accent);
+    background: rgba(124,109,250,0.08);
+    color: var(--accent2);
+  }
+  .task-chip.active-t .chip-num { border-color: var(--accent); color: var(--accent2); }
+  .task-chip.done-t {
+    border-color: var(--teal);
+    background: rgba(45,212,191,0.06);
+    color: var(--teal);
+  }
+  .task-chip.done-t .chip-num { border-color: var(--teal); color: var(--teal); }
+
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  .method-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .method-card {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 18px 16px;
+    cursor: pointer;
+    background: var(--surface);
+    transition: all 0.18s;
+    position: relative;
+    overflow: hidden;
+  }
+  .method-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: transparent;
+    transition: background 0.18s;
+  }
+  .method-card:hover { border-color: var(--border-bright); background: var(--surface2); }
+  .method-card.active { border-color: var(--accent); background: rgba(124,109,250,0.07); }
+  .method-card.active::before { background: var(--accent); }
+
+  .mc-tag {
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 2px 7px;
+    border-radius: 2px;
+    display: inline-block;
+    margin-bottom: 10px;
+  }
+  .method-card.active .mc-tag { color: var(--accent); border-color: var(--accent); }
+  .mc-tag.best { color: var(--teal); border-color: var(--teal); }
+  .mc-tag.fail { color: var(--coral); border-color: var(--coral); }
+  .mc-tag.priv { color: var(--amber); border-color: var(--amber); }
+
+  .mc-name {
+    font-family: var(--display);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+    letter-spacing: -0.01em;
+  }
+  .mc-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+  .controls-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .btn-train {
+    padding: 11px 28px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .btn-train:hover { background: var(--accent2); }
+  .btn-train:active { transform: scale(0.98); }
+  .btn-train:disabled { background: var(--surface2); color: var(--muted); cursor: not-allowed; }
+  .btn-reset {
+    padding: 11px 20px;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-reset:hover { border-color: var(--border-bright); color: var(--text); }
+
+  .status-bar {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-size: 12px;
+    color: var(--muted);
+    min-height: 42px;
+  }
+  .sdot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+  }
+  .sdot.pulse { background: var(--accent); animation: blink 0.8s ease-in-out infinite; }
+  .sdot.done { background: var(--green); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+  .prog-track {
+    height: 2px;
+    background: var(--surface2);
+    margin-bottom: 32px;
+  }
+  .prog-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.4s ease;
+    width: 0%;
+    position: relative;
+  }
+  .prog-fill::after {
+    content:'';
+    position: absolute;
+    right: 0; top: -2px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent2);
+    display: none;
+  }
+  .prog-fill.running::after { display: block; }
+
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 22px;
+  }
+  .panel-title {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .matrix-grid {
+    display: grid;
+    grid-template-columns: 24px repeat(3, 1fr);
+    gap: 6px;
+  }
+  .ml { font-size: 10px; color: var(--muted); display: flex; align-items: center; justify-content: center; font-weight: 700; }
+  .mc {
+    height: 56px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--display);
+    font-size: 16px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.9);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    transition: all 0.4s;
+    position: relative;
+    overflow: hidden;
+  }
+  .mc.empty { color: var(--muted); font-size: 12px; font-family: var(--mono); }
+  .mc.diag { box-shadow: inset 0 0 0 2px var(--accent); }
+  .mc.pop { animation: cellpop 0.35s ease; }
+  @keyframes cellpop { 0%{transform:scale(0.8);opacity:0.5} 70%{transform:scale(1.06)} 100%{transform:scale(1)} }
+
+  .matrix-legend {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .leg-bar {
+    width: 50px;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(to right, #2d2d3a, #2dd4bf);
+  }
+  .leg-diag {
+    margin-left: 8px;
+    padding: 2px 8px;
+    border: 1px solid var(--accent);
+    border-radius: 2px;
+    font-size: 9px;
+    color: var(--accent2);
+  }
+
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .mcard {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 12px 14px;
+  }
+  .mcard-label {
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .mcard-val {
+    font-family: var(--display);
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+  .mcard-val.good { color: var(--teal); }
+  .mcard-val.bad { color: var(--coral); }
+  .mcard-val.mid { color: var(--amber); }
+
+  .interp {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--accent);
+    border-radius: 0 3px 3px 0;
+    padding: 12px 14px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.7;
+    min-height: 52px;
+  }
+
+  .log-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px 22px;
+  }
+  .log-box {
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 2;
+    max-height: 130px;
+    overflow-y: auto;
+  }
+  .log-box::-webkit-scrollbar { width: 3px; }
+  .log-box::-webkit-scrollbar-track { background: transparent; }
+  .log-box::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+  .le-task { color: var(--accent2); }
+  .le-result { color: var(--text); }
+  .le-meta { color: var(--muted); }
+  .le-meta::before { content: '// '; }
+
+  .footer {
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .footer a { color: var(--muted); text-decoration: none; }
+  .footer a:hover { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="scanlines"></div>
+
+<header>
+  <div class="logo">CL<span>·</span>Demo</div>
+  <div class="header-badges">
+    <span class="hbadge">UCI HAR</span>
+    <span class="hbadge">TensorFlow</span>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="hero-eyebrow">Mini project — continual learning</div>
+    <h1 class="hero-title">Forget <em>nothing</em>.<br>Learn everything.</h1>
+    <p class="hero-sub">Comparing four anti-forgetting strategies on the UCI Human Activity Recognition dataset. Watch a neural network learn 3 sequential tasks — and see which methods remember the past.</p>
+  </div>
+
+  <div class="dataset-strip">
+    <div class="ds-item">
+      <div class="ds-label">Dataset</div>
+      <div class="ds-val accent">UCI HAR</div>
+    </div>
+    <div class="ds-item">
+      <div class="ds-label">Features</div>
+      <div class="ds-val">561</div>
+    </div>
+    <div class="ds-item">
+      <div class="ds-label">Tasks</div>
+      <div class="ds-val">3 binary</div>
+    </div>
+    <div class="ds-item">
+      <div class="ds-label">Architecture</div>
+      <div class="ds-val">561 → 256 → 256 → 1</div>
+    </div>
+    <div class="ds-item">
+      <div class="ds-label">Subjects</div>
+      <div class="ds-val">30</div>
+    </div>
+    <div class="ds-item">
+      <div class="ds-label">Samples</div>
+      <div class="ds-val">10K</div>
+    </div>
+  </div>
+
+  <div class="task-row">
+    <div class="task-chip" id="tb0">
+      <div class="chip-num">T1</div>
+      Walking vs Walk-upstairs
+    </div>
+    <div class="task-chip" id="tb1">
+      <div class="chip-num">T2</div>
+      Walk-downstairs vs Sitting
+    </div>
+    <div class="task-chip" id="tb2">
+      <div class="chip-num">T3</div>
+      Standing vs Laying
+    </div>
+  </div>
+
+  <div class="section-label">// select method</div>
+  <div class="method-grid">
+    <div class="method-card active" data-method="baseline" onclick="selectMethod(this)">
+      <div class="mc-tag">baseline</div>
+      <div class="mc-name">Fine-tuning</div>
+      <div class="mc-desc">No protection. Demonstrates catastrophic forgetting — the lower bound to beat.</div>
+    </div>
+    <div class="method-card" data-method="replay" onclick="selectMethod(this)">
+      <span class="mc-tag best">best result</span>
+      <div class="mc-name">Experience Replay</div>
+      <div class="mc-desc">Keeps a circular buffer of past samples. Replays during training on new tasks.</div>
+    </div>
+    <div class="method-card" data-method="lwf" onclick="selectMethod(this)">
+      <span class="mc-tag priv">no stored data</span>
+      <div class="mc-name">LwF</div>
+      <div class="mc-desc">Knowledge distillation. No raw data stored — privacy-friendly alternative.</div>
+    </div>
+    <div class="method-card" data-method="ewc" onclick="selectMethod(this)">
+      <span class="mc-tag fail">structural fail</span>
+      <div class="mc-name">EWC</div>
+      <div class="mc-desc">Fisher penalty anchors important weights. Fails due to shared output head.</div>
+    </div>
+  </div>
+
+  <div class="controls-row">
+    <button class="btn-train" id="btn-train" onclick="startTraining()">▶ RUN TRAINING</button>
+    <button class="btn-reset" onclick="resetAll()">RESET</button>
+    <div class="status-bar">
+      <div class="sdot" id="sdot"></div>
+      <span id="stext">Select a method and run training</span>
+    </div>
+  </div>
+
+  <div class="prog-track"><div class="prog-fill" id="prog"></div></div>
+
+  <div class="main-grid">
+    <div class="panel">
+      <div class="panel-title">Accuracy matrix A[i,j]</div>
+      <div class="matrix-grid">
+        <div class="ml"></div>
+        <div class="ml">T1</div><div class="ml">T2</div><div class="ml">T3</div>
+        <div class="ml">T1</div>
+        <div class="mc empty" id="c00">—</div><div class="mc empty" id="c01">—</div><div class="mc empty" id="c02">—</div>
+        <div class="ml">T2</div>
+        <div class="mc empty" id="c10">—</div><div class="mc empty" id="c11">—</div><div class="mc empty" id="c12">—</div>
+        <div class="ml">T3</div>
+        <div class="mc empty" id="c20">—</div><div class="mc empty" id="c21">—</div><div class="mc empty" id="c22">—</div>
+      </div>
+      <div class="matrix-legend">
+        <div class="leg-bar"></div>
+        <span>low → high accuracy</span>
+        <span class="leg-diag">■ diagonal = trained task</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Final metrics</div>
+      <div class="metrics-grid">
+        <div class="mcard">
+          <div class="mcard-label">Avg accuracy ↑</div>
+          <div class="mcard-val" id="m-avg">—</div>
+        </div>
+        <div class="mcard">
+          <div class="mcard-label">BWT ↑</div>
+          <div class="mcard-val" id="m-bwt">—</div>
+        </div>
+        <div class="mcard">
+          <div class="mcard-label">FWT ↑</div>
+          <div class="mcard-val" id="m-fwt">—</div>
+        </div>
+        <div class="mcard">
+          <div class="mcard-label">Forgetting ↓</div>
+          <div class="mcard-val" id="m-forg">—</div>
+        </div>
+      </div>
+      <div class="interp" id="interp">Metrics will appear after training completes.</div>
+    </div>
+  </div>
+
+  <div class="log-panel">
+    <div class="panel-title">Training log</div>
+    <div class="log-box" id="log"></div>
+  </div>
+
+  <div class="footer">
+    <span>Djouaher Yasmine · Continual Learning on HAR</span>
+    <span>Fine-tuning · Experience Replay · LwF · EWC</span>
+  </div>
+</main>
+
+<script>
+const RESULTS = {
+  baseline: {
+    matrix: [[0.959,0.501,0.501],[0.502,0.887,0.499],[0.513,0.500,0.990]],
+    metrics: { avg:0.668, bwt:-0.465, fwt:0.062, forg:0.310 },
+    logs: [
+      ["task","[T1] Training: Walking vs Walk-upstairs..."],
+      ["result","After T1 → T1: 0.959  T2: 0.501  T3: 0.501"],
+      ["task","[T2] Training: Walk-downstairs vs Sitting..."],
+      ["result","After T2 → T1: 0.502  T2: 0.887  T3: 0.499  // T1 collapsed"],
+      ["task","[T3] Training: Standing vs Laying..."],
+      ["result","After T3 → T1: 0.513  T2: 0.500  T3: 0.990  // T1 & T2 near-random"],
+      ["meta","BWT: −0.465 — severe catastrophic forgetting confirmed."]
+    ],
+    interp: "Severe forgetting. T1 drops 0.959 → 0.513 after T3 (near-random for binary). Unconstrained gradients fully overwrite past knowledge. Lower bound reference."
+  },
+  replay: {
+    matrix: [[0.959,0.499,0.502],[0.887,0.902,0.501],[0.872,0.842,0.990]],
+    metrics: { avg:0.901, bwt:-0.119, fwt:0.056, forg:0.079 },
+    logs: [
+      ["task","[T1] Training: Walking vs Walk-upstairs..."],
+      ["result","After T1 → T1: 0.959  T2: 0.499  T3: 0.502"],
+      ["task","[T2] Training + replaying T1 buffer (2000 samples)..."],
+      ["result","After T2 → T1: 0.887  T2: 0.902  T3: 0.501  // T1 preserved!"],
+      ["task","[T3] Training + replaying T1+T2 buffer..."],
+      ["result","After T3 → T1: 0.872  T2: 0.842  T3: 0.990  // strong retention"],
+      ["meta","BWT: −0.119. Forgetting reduced 4× vs baseline."]
+    ],
+    interp: "Clear winner. 2000-sample buffer reduces forgetting 4× (0.079 vs 0.310). Final: T1=0.872, T2=0.842, T3=0.990. BWT improves from −0.465 to −0.119."
+  },
+  lwf: {
+    matrix: [[0.974,0.499,0.500],[0.645,0.928,0.498],[0.560,0.561,0.988]],
+    metrics: { avg:0.703, bwt:-0.435, fwt:-0.035, forg:0.290 },
+    logs: [
+      ["task","[T1] Training: Walking vs Walk-upstairs..."],
+      ["result","After T1 → T1: 0.974  T2: 0.499  T3: 0.500"],
+      ["task","[T2] Training + distilling T1 model outputs (λ=1.0, T=2.0)..."],
+      ["result","After T2 → T1: 0.645  T2: 0.928  T3: 0.498  // T1 drops despite distillation"],
+      ["task","[T3] Training + distilling T2 model outputs..."],
+      ["result","After T3 → T1: 0.560  T2: 0.561  T3: 0.988  // T1 & T2 decay badly"],
+      ["meta","HAR tasks too dissimilar — old model soft outputs carry weak signal."]
+    ],
+    interp: "Modest improvement over baseline. Distillation assumes task similarity — 3 HAR activity pairs are too dissimilar. Old model outputs give weak supervision for knowledge preservation."
+  },
+  ewc: {
+    matrix: [[0.959,0.500,0.501],[0.501,0.893,0.499],[0.511,0.497,0.991]],
+    metrics: { avg:0.666, bwt:-0.463, fwt:-0.052, forg:0.311 },
+    logs: [
+      ["task","[T1] Training: Walking vs Walk-upstairs..."],
+      ["result","After T1 → T1: 0.959  T2: 0.500  T3: 0.501"],
+      ["meta","Computing Fisher diagonal (n=500, λ=100)... pinning 200K+ weights"],
+      ["task","[T2] Training + EWC regularisation penalty..."],
+      ["result","After T2 → T1: 0.501  T2: 0.893  T3: 0.499  // EWC failed"],
+      ["task","[T3] Training + EWC regularisation penalty..."],
+      ["result","After T3 → T1: 0.511  T2: 0.497  T3: 0.991  // near-baseline"],
+      ["meta","Root cause: shared single-head redefines output semantics per task."]
+    ],
+    interp: "Structural failure — λ sweep 1→2000 was flat. Shared single-output head changes meaning across tasks. Fisher penalty anchors hidden weights but can't fix output semantics."
+  }
+};
+
+let selected = 'baseline', training = false;
+
+function selectMethod(el) {
+  if (training) return;
+  document.querySelectorAll('.method-card').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  selected = el.dataset.method;
+}
+
+function cellBg(v) {
+  const lo = [30,30,45], hi = [45,212,191];
+  const r = Math.round(lo[0] + (hi[0]-lo[0]) * v);
+  const g = Math.round(lo[1] + (hi[1]-lo[1]) * v);
+  const b = Math.round(lo[2] + (hi[2]-lo[2]) * v);
+  return `rgb(${r},${g},${b})`;
+}
+
+function setCell(id, val, diag) {
+  const el = document.getElementById(id);
+  el.style.background = cellBg(val);
+  el.style.borderColor = diag ? 'var(--accent)' : 'transparent';
+  el.textContent = val.toFixed(2);
+  el.className = 'mc pop' + (diag ? ' diag' : '');
+  setTimeout(() => el.classList.remove('pop'), 400);
+}
+
+function addLog(type, text) {
+  const box = document.getElementById('log');
+  const d = document.createElement('div');
+  d.className = 'le-' + type;
+  d.textContent = text;
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+}
+
+function setStatus(text, state) {
+  document.getElementById('stext').textContent = text;
+  const dot = document.getElementById('sdot');
+  dot.className = 'sdot' + (state === 'pulse' ? ' pulse' : state === 'done' ? ' done' : '');
+}
+
+function resetAll() {
+  if (training) return;
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+    const el = document.getElementById(`c${i}${j}`);
+    el.style.background = ''; el.style.borderColor = '';
+    el.textContent = '—'; el.className = 'mc empty';
+  }
+  ['m-avg','m-bwt','m-fwt','m-forg'].forEach(id => {
+    const el = document.getElementById(id);
+    el.textContent = '—'; el.className = 'mcard-val';
+  });
+  document.getElementById('interp').textContent = 'Metrics will appear after training completes.';
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('prog').style.width = '0%';
+  document.getElementById('prog').classList.remove('running');
+  [0,1,2].forEach(i => document.getElementById(`tb${i}`).className = 'task-chip');
+  setStatus('Select a method and run training', '');
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function startTraining() {
+  if (training) return;
+  training = true; resetAll();
+  document.getElementById('btn-train').disabled = true;
+  document.getElementById('prog').classList.add('running');
+  const data = RESULTS[selected];
+
+  for (let i = 0; i < 3; i++) {
+    document.getElementById(`tb${i}`).className = 'task-chip active-t';
+    setStatus(`Training task ${i+1} of 3…`, 'pulse');
+    for (let e = 0; e < 5; e++) {
+      await sleep(180 + Math.random() * 140);
+      document.getElementById('prog').style.width = ((i*5+e+1)/15*100).toFixed(1) + '%';
+    }
+    const isEwc = selected === 'ewc';
+    const logBase = isEwc && i === 0 ? 0 : i * 2;
+    if (data.logs[logBase]) addLog(data.logs[logBase][0], data.logs[logBase][1]);
+    if (isEwc && i === 0) { await sleep(250); addLog(data.logs[2][0], data.logs[2][1]); }
+    const resultIdx = isEwc && i === 0 ? 3 : i * 2 + 1;
+    if (data.logs[resultIdx]) { await sleep(320); addLog(data.logs[resultIdx][0], data.logs[resultIdx][1]); }
+    for (let j = 0; j < 3; j++) { await sleep(120); setCell(`c${i}${j}`, data.matrix[i][j], i === j); }
+    document.getElementById(`tb${i}`).className = 'task-chip done-t';
+    await sleep(380);
+  }
+
+  addLog('meta', data.logs[data.logs.length - 1][1]);
+  document.getElementById('prog').style.width = '100%';
+  document.getElementById('prog').classList.remove('running');
+  setStatus('Training complete.', 'done');
+
+  const m = data.metrics;
+  const avg = document.getElementById('m-avg');
+  avg.textContent = m.avg.toFixed(3);
+  avg.className = 'mcard-val ' + (m.avg > 0.8 ? 'good' : m.avg < 0.7 ? 'bad' : 'mid');
+
+  const bwt = document.getElementById('m-bwt');
+  bwt.textContent = (m.bwt >= 0 ? '+' : '') + m.bwt.toFixed(3);
+  bwt.className = 'mcard-val ' + (m.bwt > -0.15 ? 'good' : 'bad');
+
+  document.getElementById('m-fwt').textContent = (m.fwt >= 0 ? '+' : '') + m.fwt.toFixed(3);
+  document.getElementById('m-fwt').className = 'mcard-val mid';
+
+  const forg = document.getElementById('m-forg');
+  forg.textContent = m.forg.toFixed(3);
+  forg.className = 'mcard-val ' + (m.forg < 0.1 ? 'good' : m.forg > 0.25 ? 'bad' : 'mid');
+
+  document.getElementById('interp').textContent = data.interp;
+  document.getElementById('btn-train').disabled = false;
+  training = false;
+}
+</script>
+</body>
+</html>
